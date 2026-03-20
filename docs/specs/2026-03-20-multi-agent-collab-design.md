@@ -19,6 +19,17 @@ A file-based collaboration protocol that any AI coding agent can follow. A `.col
 - **Human-gated:** The human approves every review verdict and task transition. Agents propose, human decides.
 - **Transparent:** All state is inspectable markdown. The human can open `.collab/` and understand everything.
 - **Simulates human collaboration:** The protocol mirrors how two developers share a codebase — through code, reviews, and written context.
+- **Turn-based concurrency:** Only one agent is actively working at a time. The human controls turn transitions. This eliminates filesystem race conditions by design.
+
+## 3.1 Conventions
+
+**Timestamps:** All timestamps use ISO 8601 format with local offset: `2026-03-20T14:30:00+08:00`. Agents must use this format everywhere in `.collab/` files.
+
+**File naming:** All `.collab/` filenames use lowercase. Handoffs: `NNN-<from>-to-<to>.md` (e.g., `001-a-to-b.md`). Reviews: `NNN-<reviewer>-<sha>.md` (e.g., `001-b-abc1234.md`). Sequential numbers are 3-digit zero-padded.
+
+**Git branch:** Both agents work on the same branch (typically a feature branch). All commits go to this shared branch. Agents use `git pull` before starting work to pick up the other agent's commits.
+
+**`.collab/` in git:** The `.collab/` directory SHOULD be committed to the repo so both agents can access it via `git pull`. Add `*.gitkeep` files to empty directories.
 
 ## 4. Scope
 
@@ -83,6 +94,13 @@ status: active
 - `role`: Current role (implementer, reviewer, or custom)
 - `status`: `idle`, `working`, `reviewing`, `waiting-for-human`
 
+**Status updates:** Agents update their own status by rewriting the manifest table. Each agent only modifies its own row. Since the protocol is turn-based (only one agent active at a time), there is no risk of concurrent edits to the manifest.
+
+**Human approval signaling:** When the human approves a review or transition, the human updates the manifest:
+1. Sets the implementing agent's status to `idle` (ready for next cycle)
+2. Optionally swaps roles or reassigns tasks
+3. The agent detects approval by reading its own status — if `idle`, it may proceed with the next action the human requests
+
 ### 6.2 Shared Context (`context.md`)
 
 The shared memory between agents. Both read before starting, both append when they learn something.
@@ -120,12 +138,12 @@ Prevents two agents from editing the same file.
 
 | file | agent | action | declared |
 |------|-------|--------|----------|
-| src/routes/auth.ts | A | create | 2026-03-20 14:30 |
+| src/routes/auth.ts | A | create | 2026-03-20T14:30:00+08:00 |
 
 ## Released
 | file | agent | released |
 |------|-------|----------|
-| src/index.ts | A | 2026-03-20 14:25 |
+| src/index.ts | A | 2026-03-20T14:25:00+08:00 |
 ```
 
 **Protocol:**
@@ -134,6 +152,8 @@ Prevents two agents from editing the same file.
 3. If unlocked → add row to active table, then edit
 4. After committing → move row to `Released` section
 5. Stale lock rule: if lock is >1 hour old and owning agent's status is `idle`, the other agent flags it in `context.md`. Only the human clears stale locks.
+
+**Action values:** `create`, `modify`, `delete`. Agents do not lock files for reading.
 
 ### 6.4 Activity Log (`log.md`)
 
@@ -144,11 +164,11 @@ Append-only timeline for human oversight.
 
 | time | agent | action | detail |
 |------|-------|--------|--------|
-| 14:30 | A | lock | src/routes/auth.ts |
-| 14:45 | A | commit | abc1234 — login/logout endpoints |
-| 14:45 | A | handoff | handoffs/001-a-to-b.md |
-| 14:50 | B | review | reviews/001-b-abc1234.md → changes-requested |
-| 14:55 | human | approve | review 001 accepted |
+| 2026-03-20T14:30:00+08:00 | A | lock | src/routes/auth.ts |
+| 2026-03-20T14:45:00+08:00 | A | commit | abc1234 — login/logout endpoints |
+| 2026-03-20T14:45:00+08:00 | A | handoff | handoffs/001-a-to-b.md |
+| 2026-03-20T14:50:00+08:00 | B | review | reviews/001-b-abc1234.md → changes-requested |
+| 2026-03-20T14:55:00+08:00 | human | approve | review 001 accepted |
 ```
 
 Every agent appends a row after any action. Human can scan the full session history.
@@ -205,6 +225,8 @@ The reviewing agent reads the handoff, inspects the diff, and writes a review.
 3. If `changes-requested`: Agent A reads review, fixes, commits, writes new handoff
 4. Repeat until `approved`
 5. Human must explicitly approve before workflow advances
+
+**Naming:** `reviews/NNN-<reviewer>-<sha>.md` — sequential numbering matching handoffs, reviewer ID lowercase, short commit SHA.
 
 ## 7. Agent Lifecycle
 
@@ -278,6 +300,34 @@ Each adapter is short (<50 lines) — it tells the agent:
 2. Follow intent-lock rules
 3. Write handoffs/reviews after actions
 4. Append to log after everything
+
+**Adapter content outline:**
+Each adapter must include:
+- Protocol summary (read `.collab/` → act → write `.collab/`)
+- File-reading instructions using the agent's native tools
+- Intent-lock check-and-declare procedure
+- Handoff/review writing templates
+- Log append instruction
+- Status self-update instruction
+- Reminder to `git pull` before starting and `git commit && git push` after writing to `.collab/`
+
+## 9.1 Error Recovery
+
+**Agent crash mid-cycle:**
+- `.collab/` files may be partially written or status stuck on `working`
+- Human manually resets the agent's status to `idle` in `manifest.md`
+- Human clears any stale intent locks
+- Human decides whether to keep or discard partial commits
+
+**Malformed `.collab/` files:**
+- If an agent produces unparseable markdown, the human fixes it manually
+- Agents should not attempt to auto-repair files they didn't write
+
+**Lost commit reference:**
+- If a handoff references a commit SHA that was rebased away, the human creates a new handoff pointing to the correct SHA
+
+**Protocol reset:**
+- If `.collab/` state is irrecoverable, the human can delete all files except `manifest.md` and `context.md`, then restart the cycle
 
 ## 10. Plugin Repo Structure
 
