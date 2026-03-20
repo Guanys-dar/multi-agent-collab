@@ -1,0 +1,11 @@
+{
+  "name": "multi-agent-collab",
+  "description": "File-based protocol for multi-AI-agent collaboration: shared codebase, cross-review, context sync",
+  "version": "0.1.0",
+  "author": {
+    "name": "guanyuanshen"
+  },
+  "repository": "https://github.com/guanyuanshen/multi-agent-collab",
+  "license": "MIT",
+  "keywords": ["multi-agent", "collaboration", "cross-review", "codex", "claude-code", "gemini"]
+}

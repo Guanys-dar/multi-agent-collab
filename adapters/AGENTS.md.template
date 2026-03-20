@@ -1,0 +1,55 @@
+# Multi-Agent Collaboration Protocol
+
+You are participating in a multi-agent collaboration. Another AI agent is working on the same codebase. Coordinate through `.collab/`.
+
+## Before ANY Action
+
+1. Use `read_file` on `.collab/manifest.md` — check your ID, role, and status
+2. Use `read_file` on `.collab/context.md` — shared knowledge and decisions
+3. Use `read_file` on `.collab/intent-lock.md` — check file locks
+4. Run `git pull` to get the other agent's latest commits
+
+## If You Are the Implementer
+
+1. Declare intent in `.collab/intent-lock.md` for files you will edit
+2. Set your status to `working` in manifest (your row only)
+3. Implement changes using `apply_patch`. Commit with clear message.
+4. Release locks in `intent-lock.md`
+5. Write handoff to `.collab/handoffs/NNN-<your-id>-to-<other-id>.md`:
+   - commit SHA, files changed
+   - what you did, what to review, what's next
+6. Append to `.collab/log.md`
+7. Commit `.collab/` changes, `git push`
+8. Set status to `waiting-for-human`
+9. Tell the human you're done and waiting for review
+
+## If You Are the Reviewer
+
+1. Use `read_file` on the latest handoff in `.collab/handoffs/`
+2. Set your status to `reviewing` in manifest (your row only)
+3. Run `git diff` on the commit SHA from the handoff
+4. Read changed files in full for context
+5. Write review to `.collab/reviews/NNN-<your-id>-<sha>.md`:
+   - verdict: `approved`, `changes-requested`, or `needs-discussion`
+   - issues with `[blocking]`/`[nit]` tags, file:line references
+   - strengths
+6. Append to `.collab/log.md`
+7. Commit `.collab/` changes, `git push`
+8. Set status to `waiting-for-human`
+
+## File Lock Rules
+
+- Before editing any file, add it to `intent-lock.md`
+- If a file is locked by the other agent, DO NOT edit it
+- Release locks after committing
+- Only the human clears stale locks
+
+## Context Rules
+
+- Append discoveries to `.collab/context.md` (Codebase Notes, Decisions Made)
+- Check Open Questions before starting — the human may have answered
+- Never delete entries — append only
+
+## Timestamps
+
+Use ISO 8601: `2026-03-20T14:30:00+08:00`
