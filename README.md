@@ -30,12 +30,12 @@ Human approves            ──→      Next cycle
 
 **As a Claude Code plugin:**
 ```bash
-claude /plugin install multi-agent-collab@<your-github-username>
+claude /plugin install multi-agent-collab@Guanys-dar
 ```
 
 **Manual:**
 ```bash
-git clone https://github.com/<your-github-username>/multi-agent-collab.git
+git clone https://github.com/Guanys-dar/multi-agent-collab.git
 ```
 
 ## Quick Start
