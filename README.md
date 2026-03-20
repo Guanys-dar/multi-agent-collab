@@ -1,4 +1,4 @@
-# multi-agent-collab
+# Multi-Agent-Collab
 
 A file-based protocol for AI coding agents (Claude Code, Codex, Gemini CLI) to collaborate on a shared codebase with cross-review.
 
